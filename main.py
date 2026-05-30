@@ -5,15 +5,18 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from gradio_client import Client, handle_file
 
-# 1. SETUP TOKEN DAN BOT
+# ==========================================
+# 1. SETUP TOKEN DAN KONEKSI
+# ==========================================
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-# 2. SETUP KONEKSI AI
 print("Menghubungkan ke server AI IDM-VTON...")
 ai_client = Client("yisol/IDM-VTON")
 
-# 3. DATABASE KATALOG PRODUK
+# ==========================================
+# 2. DATABASE KATALOG PRODUK
+# ==========================================
 KATALOG_BAJU = {
     "baju_1": {
         "nama": "Kaos Biru Polos", 
@@ -30,7 +33,9 @@ KATALOG_BAJU = {
 # Memori sementara untuk mengingat pilihan pengguna
 user_state = {}
 
-# 4. MENU UTAMA (Menampilkan Gambar Etalase)
+# ==========================================
+# 3. MENU UTAMA (Menampilkan Gambar Etalase)
+# ==========================================
 @bot.message_handler(commands=['start', 'coba_baju'])
 def send_welcome(message):
     chat_id = message.chat.id
@@ -42,12 +47,19 @@ def send_welcome(message):
         markup.add(InlineKeyboardButton(f"✨ Pilih {detail['nama']}", callback_data=kode))
         
         try:
-            # Menyamar sebagai browser Chrome agar tidak diblokir Wikimedia
+            # Menyamar sebagai browser Chrome
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
             response = requests.get(detail["url_gambar"], headers=headers)
             
-            # Ubah data dari internet langsung menjadi file gambar di dalam RAM
+            # Pastikan unduhan benar-benar sukses (kode 200 OK)
+            if response.status_code != 200:
+                raise Exception(f"Server gambar menolak akses (Status: {response.status_code})")
+            
+            # Ubah data menjadi file di dalam RAM
             img_bytes = io.BytesIO(response.content)
+            
+            # Beri tahu Telegram bahwa ini adalah file gambar JPG
+            img_bytes.name = 'katalog.jpg' 
             
             bot.send_photo(
                 chat_id=chat_id,
@@ -57,7 +69,6 @@ def send_welcome(message):
                 reply_markup=markup
             )
         except Exception as e:
-            # Fallback jika gambar tetap gagal dimuat, teksnya saja yang dikirim
             print(f"Gagal memproses {detail['nama']}: {e}")
             bot.send_message(
                 chat_id=chat_id, 
@@ -66,7 +77,9 @@ def send_welcome(message):
                 reply_markup=markup
             )
 
-# 5. MENANGKAP KLIK TOMBOL PILIHAN BAJU
+# ==========================================
+# 4. MENANGKAP KLIK TOMBOL PILIHAN BAJU
+# ==========================================
 @bot.callback_query_handler(func=lambda call: True)
 def handle_pilihan_baju(call):
     pilihan = call.data
@@ -76,7 +89,9 @@ def handle_pilihan_baju(call):
     nama_baju = KATALOG_BAJU[pilihan]['nama']
     bot.send_message(chat_id, f"✅ Kamu memilih **{nama_baju}**.\n\nSekarang, silakan *upload* (kirim) foto diri kamu ke sini. Pastikan wajah dan minimal setengah badan terlihat jelas dengan cahaya yang terang ya!", parse_mode="Markdown")
 
-# 6. LOGIKA PEMROSESAN GAMBAR AI
+# ==========================================
+# 5. LOGIKA PEMROSESAN GAMBAR AI
+# ==========================================
 @bot.message_handler(content_types=['photo'])
 def handle_foto_user(message):
     chat_id = message.chat.id
@@ -99,7 +114,7 @@ def handle_foto_user(message):
         with open(foto_user_path, 'wb') as new_file:
             new_file.write(downloaded_file)
             
-        # Download foto produk dengan penyamaran header agar tidak diblokir
+        # Download foto produk dengan penyamaran header
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         response_baju = requests.get(baju_terpilih["url_gambar"], headers=headers)
         with open(baju_path, 'wb') as file_baju:
@@ -137,6 +152,9 @@ def handle_foto_user(message):
         if chat_id in user_state:
             del user_state[chat_id]
 
+# ==========================================
+# 6. EKSEKUSI UTAMA
+# ==========================================
 if __name__ == "__main__":
     print("🚀 Bot VTON Toko Baju siap dan aktif 24/7...")
     bot.infinity_polling()
