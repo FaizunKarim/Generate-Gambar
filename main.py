@@ -19,9 +19,9 @@ ai_client = Client("yisol/IDM-VTON")
 # ==========================================
 KATALOG_BAJU = {
     "baju_1": {
-        "nama": "Kaos Biru Polos", 
+        "nama": "Kaos putih Polos", 
         "url_gambar": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", 
-        "link_beli": "https://tokokamu.com/beli/kaos-biru"
+        "link_beli": "https://tokokamu.com/beli/kaos-putih"
     },
     "baju_2": {
         "nama": "Jaket Kulit Hitam", 
