@@ -19,9 +19,9 @@ ai_client = Client("yisol/IDM-VTON")
 # ==========================================
 KATALOG_BAJU = {
     "baju_1": {
-        "nama": "Kaos putih Polos", 
+        "nama": "Kaos Biru Polos", 
         "url_gambar": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80", 
-        "link_beli": "https://tokokamu.com/beli/kaos-putih"
+        "link_beli": "https://tokokamu.com/beli/kaos-biru"
     },
     "baju_2": {
         "nama": "Jaket Kulit Hitam", 
@@ -114,54 +114,6 @@ def handle_foto_user(message):
         with open(foto_user_path, 'wb') as new_file:
             new_file.write(downloaded_file)
             
-        # Download foto produk
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-        response_baju = requests.get(baju_terpilih["url_gambar"], headers=headers)
-        with open(baju_path, 'wb') as file_baju:
-            file_baju.write(response_baju.content)
-            
-        # Tembak ke server AI Hugging Face
-        print(f"Mengirim permintaan VTON untuk user {chat_id}...")
-        hasil_ai = ai_client.predict(
-            dict(background=handle_file(foto_user_path), layers=[], composite=None), 
-            handle_file(baju_path), 
-            baju_terpilih["prompt_ai"], 
-            False,     # Auto-Crop dimatikan
-            True,      
-            30,        
-            42,        
-            api_name="/tryon"
-        )
-        
-        # Ambil hasil dan kembalikan ke Telegram
-        hasil_gambar_path = hasil_ai[0] 
-        with open(hasil_gambar_path, 'rb') as foto_hasil:
-            teks_promosi = f"✨ Tadaaa! Ini penampilanmu memakai {baju_terpilih['nama']}.\n\n🛒 Suka dengan bajunya? Beli langsung di sini: {baju_terpilih['link_beli']}"
-            bot.send_photo(chat_id, foto_hasil, caption=teks_promosi)
-            
-        # 👇 PINDAHKAN KE SINI: Hapus pesan loading HANYA jika proses sukses
-        bot.delete_message(chat_id, msg.message_id)
-            
-    except Exception as e:
-        # Jika error, pesan loading diubah jadi pesan error, TAPI JANGAN DIHAPUS
-        bot.edit_message_text(f"❌ Server AI gagal memproses fotomu.\n\n`Error Log: {str(e)}`", chat_id=msg.chat.id, message_id=msg.message_id, parse_mode="Markdown")
-    
-    finally:
-        if os.path.exists(foto_user_path):
-            os.remove(foto_user_path)
-        if os.path.exists(baju_path):
-            os.remove(baju_path)
-        if chat_id in user_state:
-            del user_state[chat_id]
-
-        baju_terpilih = KATALOG_BAJU[user_state[chat_id]]
-        
-        # Download foto user dari Telegram
-        file_info = bot.get_file(message.photo[-1].file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        with open(foto_user_path, 'wb') as new_file:
-            new_file.write(downloaded_file)
-            
         # Download foto produk dengan penyamaran header
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         response_baju = requests.get(baju_terpilih["url_gambar"], headers=headers)
@@ -174,7 +126,7 @@ def handle_foto_user(message):
             dict(background=handle_file(foto_user_path), layers=[], composite=None), 
             handle_file(baju_path), 
             "Garment", 
-            False,      
+            True,      
             True,      
             30,        
             42,        
