@@ -2,6 +2,9 @@ import os
 import io
 import requests
 import telebot
+import cv2
+import numpy as np
+import mediapipe as mp
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from gradio_client import Client, handle_file
 
@@ -13,6 +16,10 @@ bot = telebot.TeleBot(TOKEN)
 
 print("Menghubungkan ke server AI IDM-VTON...")
 ai_client = Client("yisol/IDM-VTON")
+
+# Setup MediaPipe untuk deteksi leher
+mp_pose = mp.solutions.pose
+pose = mp_pose.Pose(static_image_mode=True, min_detection_confidence=0.5)
 
 # ==========================================
 # 2. DATABASE KATALOG PRODUK
@@ -30,35 +37,53 @@ KATALOG_BAJU = {
     }
 }
 
-# Memori sementara untuk mengingat pilihan pengguna
 user_state = {}
 
 # ==========================================
-# 3. MENU UTAMA (Menampilkan Gambar Etalase)
+# 3. FUNGSI SMART CROP (Fitur Baru)
+# ==========================================
+def smart_crop(path_gambar):
+    img = cv2.imread(path_gambar)
+    if img is None: return
+    h, w, _ = img.shape
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    results = pose.process(img_rgb)
+    
+    if results.pose_landmarks:
+        lms = results.pose_landmarks.landmark
+        # Landmark 11(Left Shoulder) & 12(Right Shoulder)
+        neck_x = int((lms[11].x + lms[12].x) / 2 * w)
+        neck_y = int((lms[11].y + lms[12].y) / 2 * h)
+        
+        size = min(w, h)
+        x1 = max(0, neck_x - size // 2)
+        y1 = max(0, neck_y - size // 3)
+        x2 = min(w, x1 + size)
+        y2 = min(h, y1 + size)
+        
+        cropped = img[y1:y2, x1:x2]
+        cv2.imwrite(path_gambar, cropped)
+
+# ==========================================
+# 4. MENU UTAMA
 # ==========================================
 @bot.message_handler(commands=['start', 'coba_baju'])
 def send_welcome(message):
     chat_id = message.chat.id
     bot.send_message(chat_id, "👋 Halo! Selamat datang di fitur AI Virtual Try-On.\n\nSilakan lihat etalase kami dan klik tombol pada gambar baju yang ingin kamu coba:")
     
-    # Looping untuk mengirim setiap foto baju satu per satu
     for kode, detail in KATALOG_BAJU.items():
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton(f"✨ Pilih {detail['nama']}", callback_data=kode))
         
         try:
-            # Menyamar sebagai browser Chrome
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
             response = requests.get(detail["url_gambar"], headers=headers)
             
-            # Pastikan unduhan benar-benar sukses (kode 200 OK)
             if response.status_code != 200:
                 raise Exception(f"Server gambar menolak akses (Status: {response.status_code})")
             
-            # Ubah data menjadi file di dalam RAM
             img_bytes = io.BytesIO(response.content)
-            
-            # Beri tahu Telegram bahwa ini adalah file gambar JPG
             img_bytes.name = 'katalog.jpg' 
             
             bot.send_photo(
@@ -78,7 +103,7 @@ def send_welcome(message):
             )
 
 # ==========================================
-# 4. MENANGKAP KLIK TOMBOL PILIHAN BAJU
+# 5. MENANGKAP KLIK TOMBOL PILIHAN BAJU
 # ==========================================
 @bot.callback_query_handler(func=lambda call: True)
 def handle_pilihan_baju(call):
@@ -90,7 +115,7 @@ def handle_pilihan_baju(call):
     bot.send_message(chat_id, f"✅ Kamu memilih **{nama_baju}**.\n\nSekarang, silakan *upload* (kirim) foto diri kamu ke sini. Pastikan wajah dan minimal setengah badan terlihat jelas dengan cahaya yang terang ya!", parse_mode="Markdown")
 
 # ==========================================
-# 5. LOGIKA PEMROSESAN GAMBAR AI
+# 6. LOGIKA PEMROSESAN GAMBAR AI
 # ==========================================
 @bot.message_handler(content_types=['photo'])
 def handle_foto_user(message):
@@ -114,6 +139,9 @@ def handle_foto_user(message):
         with open(foto_user_path, 'wb') as new_file:
             new_file.write(downloaded_file)
             
+        # --- SMART CROP CALL ---
+        smart_crop(foto_user_path)
+            
         # Download foto produk dengan penyamaran header
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         response_baju = requests.get(baju_terpilih["url_gambar"], headers=headers)
@@ -126,10 +154,10 @@ def handle_foto_user(message):
             dict(background=handle_file(foto_user_path), layers=[], composite=None), 
             handle_file(baju_path), 
             "Garment", 
-            True,      
-            True,      
-            30,        
-            42,        
+            True,       
+            True,       
+            30,         
+            42,         
             api_name="/tryon"
         )
         
@@ -153,7 +181,7 @@ def handle_foto_user(message):
             del user_state[chat_id]
 
 # ==========================================
-# 6. EKSEKUSI UTAMA
+# 7. EKSEKUSI UTAMA
 # ==========================================
 if __name__ == "__main__":
     print("🚀 Bot VTON Toko Baju siap dan aktif 24/7...")
