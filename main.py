@@ -2,9 +2,7 @@ import os
 import io
 import requests
 import telebot
-import cv2
-import numpy as np
-import mediapipe as mp
+from PIL import Image
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from gradio_client import Client, handle_file
 
@@ -16,10 +14,6 @@ bot = telebot.TeleBot(TOKEN)
 
 print("Menghubungkan ke server AI IDM-VTON...")
 ai_client = Client("yisol/IDM-VTON")
-
-# Setup MediaPipe untuk deteksi leher
-mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(static_image_mode=True, min_detection_confidence=0.5)
 
 # ==========================================
 # 2. DATABASE KATALOG PRODUK
@@ -40,29 +34,20 @@ KATALOG_BAJU = {
 user_state = {}
 
 # ==========================================
-# 3. FUNGSI SMART CROP (Fitur Baru)
+# 3. FUNGSI CENTER CROP (Menggunakan Pillow)
 # ==========================================
-def smart_crop(path_gambar):
-    img = cv2.imread(path_gambar)
-    if img is None: return
-    h, w, _ = img.shape
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    results = pose.process(img_rgb)
+def center_crop(path_gambar):
+    img = Image.open(path_gambar)
+    w, h = img.size
+    size = min(w, h)
     
-    if results.pose_landmarks:
-        lms = results.pose_landmarks.landmark
-        # Landmark 11(Left Shoulder) & 12(Right Shoulder)
-        neck_x = int((lms[11].x + lms[12].x) / 2 * w)
-        neck_y = int((lms[11].y + lms[12].y) / 2 * h)
-        
-        size = min(w, h)
-        x1 = max(0, neck_x - size // 2)
-        y1 = max(0, neck_y - size // 3)
-        x2 = min(w, x1 + size)
-        y2 = min(h, y1 + size)
-        
-        cropped = img[y1:y2, x1:x2]
-        cv2.imwrite(path_gambar, cropped)
+    left = (w - size) / 2
+    top = (h - size) / 2
+    right = (w + size) / 2
+    bottom = (h + size) / 2
+    
+    img = img.crop((left, top, right, bottom))
+    img.save(path_gambar)
 
 # ==========================================
 # 4. MENU UTAMA
@@ -139,8 +124,8 @@ def handle_foto_user(message):
         with open(foto_user_path, 'wb') as new_file:
             new_file.write(downloaded_file)
             
-        # --- SMART CROP CALL ---
-        smart_crop(foto_user_path)
+        # --- CENTER CROP CALL ---
+        center_crop(foto_user_path)
             
         # Download foto produk dengan penyamaran header
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
