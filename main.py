@@ -11,7 +11,7 @@ bot = telebot.TeleBot(TOKEN)
 
 # 🤖 HUBUNGKAN KE SERVER AI HUGGING FACE DENGAN TOKEN
 print("Menghubungkan ke server AI IDM-VTON...")
-ai_client = Client("yisol/IDM-VTON", hf_token=HF_TOKEN)
+ai_client = Client("yisol/IDM-VTON")
 
 # 👕 DATABASE KATALOG BAJU (FOTO RANDOM UNTUK TESTING)
 KATALOG_BAJU = {
