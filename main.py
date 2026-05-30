@@ -5,12 +5,28 @@ import telebot
 from PIL import Image
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from gradio_client import Client, handle_file
+from flask import Flask
+from threading import Thread
 
 # ==========================================
 # 1. SETUP TOKEN DAN KONEKSI
 # ==========================================
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 bot = telebot.TeleBot(TOKEN)
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running and healthy!"
+
+def run_web():
+    # Koyeb biasanya menggunakan port 8000 atau 8080
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8000)))
+
+# Jalankan web server di thread terpisah agar tidak memblokir bot
+Thread(target=run_web, daemon=True).start()
+# ----------------------------------------------
 
 print("Menghubungkan ke server AI IDM-VTON...")
 ai_client = Client("yisol/IDM-VTON")
