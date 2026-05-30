@@ -182,8 +182,13 @@ def handle_foto_user(message):
             bot.send_photo(chat_id, foto_hasil, caption=teks_promosi)
             
     except Exception as e:
-        bot.edit_message_text(f"❌ Server AI kebingungan memproses fotomu.\nPastikan wajah dan badanmu terlihat jelas tanpa terpotong!\n\n`Error Log: {str(e)}`", chat_id=msg.chat.id, message_id=msg.message_id, parse_mode="Markdown")
-    
+            with open("error.log", "a") as f:
+                f.write(f"Error: {str(e)}\n")
+            
+            # Kirim error ke Telegram agar kamu tahu kenapa mati
+            bot.reply_to(message, f"❌ Error terjadi: {str(e)}")
+            bot.edit_message_text(f"❌ Server AI kebingungan memproses fotomu.\nPastikan wajah dan badanmu terlihat jelas tanpa terpotong!\n\n`Error Log: {str(e)}`", chat_id=msg.chat.id, message_id=msg.message_id, parse_mode="Markdown")
+        
     finally:
         # Hapus pesan "memproses" dan bersihkan file sampah di server
         bot.delete_message(chat_id, msg.message_id)
