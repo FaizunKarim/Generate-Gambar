@@ -126,7 +126,7 @@ def handle_foto_user(message):
             dict(background=handle_file(foto_user_path), layers=[], composite=None), 
             handle_file(baju_path), 
             "Garment", 
-            True,      
+            False,      
             True,      
             30,        
             42,        
