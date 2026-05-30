@@ -1,4 +1,5 @@
 import os
+import io
 import requests
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -33,7 +34,6 @@ user_state = {}
 @bot.message_handler(commands=['start', 'coba_baju'])
 def send_welcome(message):
     chat_id = message.chat.id
-    
     bot.send_message(chat_id, "👋 Halo! Selamat datang di fitur AI Virtual Try-On.\n\nSilakan lihat etalase kami dan klik tombol pada gambar baju yang ingin kamu coba:")
     
     # Looping untuk mengirim setiap foto baju satu per satu
@@ -41,13 +41,30 @@ def send_welcome(message):
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton(f"✨ Pilih {detail['nama']}", callback_data=kode))
         
-        bot.send_photo(
-            chat_id=chat_id,
-            photo=detail["url_gambar"],
-            caption=f"👕 *{detail['nama']}*",
-            parse_mode="Markdown",
-            reply_markup=markup
-        )
+        try:
+            # Menyamar sebagai browser Chrome agar tidak diblokir Wikimedia
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+            response = requests.get(detail["url_gambar"], headers=headers)
+            
+            # Ubah data dari internet langsung menjadi file gambar di dalam RAM
+            img_bytes = io.BytesIO(response.content)
+            
+            bot.send_photo(
+                chat_id=chat_id,
+                photo=img_bytes,
+                caption=f"👕 *{detail['nama']}*",
+                parse_mode="Markdown",
+                reply_markup=markup
+            )
+        except Exception as e:
+            # Fallback jika gambar tetap gagal dimuat, teksnya saja yang dikirim
+            print(f"Gagal memproses {detail['nama']}: {e}")
+            bot.send_message(
+                chat_id=chat_id, 
+                text=f"👕 *{detail['nama']}*\n_(Gambar gagal dimuat, namun tetap bisa dipilih)_", 
+                parse_mode="Markdown", 
+                reply_markup=markup
+            )
 
 # 5. MENANGKAP KLIK TOMBOL PILIHAN BAJU
 @bot.callback_query_handler(func=lambda call: True)
@@ -82,8 +99,9 @@ def handle_foto_user(message):
         with open(foto_user_path, 'wb') as new_file:
             new_file.write(downloaded_file)
             
-        # Download foto produk (Bypass blokir API dari sumber web)
-        response_baju = requests.get(baju_terpilih["url_gambar"])
+        # Download foto produk dengan penyamaran header agar tidak diblokir
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        response_baju = requests.get(baju_terpilih["url_gambar"], headers=headers)
         with open(baju_path, 'wb') as file_baju:
             file_baju.write(response_baju.content)
             
