@@ -35,13 +35,24 @@ KATALOG_BAJU = {
 user_state = {}
 
 # ==========================================
-# FUNGSI TAMBAHAN: TOP CROP
+# FUNGSI TAMBAHAN: TOP CROP 2:3
 # ==========================================
-def top_crop_to_square(path_gambar):
+def top_crop_23(path_gambar):
     img = Image.open(path_gambar)
     w, h = img.size
-    size = min(w, h)
-    img = img.crop((0, 0, size, size))
+    
+    # Target rasio 2:3 (Lebar : Tinggi) -> Tinggi = Lebar * 1.5
+    target_h = int(w * 1.5)
+    
+    if h >= target_h:
+        # Jika gambar cukup tinggi, ambil lebar penuh, potong tingginya dari atas
+        img = img.crop((0, 0, w, target_h))
+    else:
+        # Jika gambar kurang tinggi (landscape), potong lebarnya agar rasio 2:3
+        new_w = int(h / 1.5)
+        left = (w - new_w) / 2
+        img = img.crop((left, 0, left + new_w, h))
+        
     img.save(path_gambar)
 
 # ==========================================
@@ -147,8 +158,8 @@ def handle_foto_user(message):
         # Ambil hasil dan kembalikan ke Telegram
         hasil_gambar_path = hasil_ai[0] 
         
-        # --- PROSES TOP CROP ---
-        top_crop_to_square(hasil_gambar_path)
+        # --- PROSES TOP CROP 2:3 ---
+        top_crop_23(hasil_gambar_path)
         
         with open(hasil_gambar_path, 'rb') as foto_hasil:
             teks_promosi = f"✨ Tadaaa! Ini penampilanmu memakai {baju_terpilih['nama']}.\n\n🛒 Suka dengan bajunya? Beli langsung di sini: {baju_terpilih['link_beli']}"
