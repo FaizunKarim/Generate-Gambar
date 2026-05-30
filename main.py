@@ -31,44 +31,45 @@ KATALOG_BAJU = {
     }
 }
 
+# Memori sementara untuk mengingat pilihan pengguna
 user_state = {}
 
 # ==========================================
-# 3. FUNGSI CENTER CROP (Menggunakan Pillow)
+# FUNGSI TAMBAHAN: TOP CROP
 # ==========================================
-def center_crop(path_gambar):
+def top_crop_to_square(path_gambar):
     img = Image.open(path_gambar)
     w, h = img.size
     size = min(w, h)
-    
-    left = (w - size) / 2
-    top = (h - size) / 2
-    right = (w + size) / 2
-    bottom = (h + size) / 2
-    
-    img = img.crop((left, top, right, bottom))
+    img = img.crop((0, 0, size, size))
     img.save(path_gambar)
 
 # ==========================================
-# 4. MENU UTAMA
+# 3. MENU UTAMA (Menampilkan Gambar Etalase)
 # ==========================================
 @bot.message_handler(commands=['start', 'coba_baju'])
 def send_welcome(message):
     chat_id = message.chat.id
     bot.send_message(chat_id, "👋 Halo! Selamat datang di fitur AI Virtual Try-On.\n\nSilakan lihat etalase kami dan klik tombol pada gambar baju yang ingin kamu coba:")
     
+    # Looping untuk mengirim setiap foto baju satu per satu
     for kode, detail in KATALOG_BAJU.items():
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton(f"✨ Pilih {detail['nama']}", callback_data=kode))
         
         try:
+            # Menyamar sebagai browser Chrome
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
             response = requests.get(detail["url_gambar"], headers=headers)
             
+            # Pastikan unduhan benar-benar sukses (kode 200 OK)
             if response.status_code != 200:
                 raise Exception(f"Server gambar menolak akses (Status: {response.status_code})")
             
+            # Ubah data menjadi file di dalam RAM
             img_bytes = io.BytesIO(response.content)
+            
+            # Beri tahu Telegram bahwa ini adalah file gambar JPG
             img_bytes.name = 'katalog.jpg' 
             
             bot.send_photo(
@@ -88,7 +89,7 @@ def send_welcome(message):
             )
 
 # ==========================================
-# 5. MENANGKAP KLIK TOMBOL PILIHAN BAJU
+# 4. MENANGKAP KLIK TOMBOL PILIHAN BAJU
 # ==========================================
 @bot.callback_query_handler(func=lambda call: True)
 def handle_pilihan_baju(call):
@@ -100,7 +101,7 @@ def handle_pilihan_baju(call):
     bot.send_message(chat_id, f"✅ Kamu memilih **{nama_baju}**.\n\nSekarang, silakan *upload* (kirim) foto diri kamu ke sini. Pastikan wajah dan minimal setengah badan terlihat jelas dengan cahaya yang terang ya!", parse_mode="Markdown")
 
 # ==========================================
-# 6. LOGIKA PEMROSESAN GAMBAR AI
+# 5. LOGIKA PEMROSESAN GAMBAR AI
 # ==========================================
 @bot.message_handler(content_types=['photo'])
 def handle_foto_user(message):
@@ -124,9 +125,6 @@ def handle_foto_user(message):
         with open(foto_user_path, 'wb') as new_file:
             new_file.write(downloaded_file)
             
-        # --- CENTER CROP CALL ---
-        center_crop(foto_user_path)
-            
         # Download foto produk dengan penyamaran header
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         response_baju = requests.get(baju_terpilih["url_gambar"], headers=headers)
@@ -148,6 +146,10 @@ def handle_foto_user(message):
         
         # Ambil hasil dan kembalikan ke Telegram
         hasil_gambar_path = hasil_ai[0] 
+        
+        # --- PROSES TOP CROP ---
+        top_crop_to_square(hasil_gambar_path)
+        
         with open(hasil_gambar_path, 'rb') as foto_hasil:
             teks_promosi = f"✨ Tadaaa! Ini penampilanmu memakai {baju_terpilih['nama']}.\n\n🛒 Suka dengan bajunya? Beli langsung di sini: {baju_terpilih['link_beli']}"
             bot.send_photo(chat_id, foto_hasil, caption=teks_promosi)
@@ -166,7 +168,7 @@ def handle_foto_user(message):
             del user_state[chat_id]
 
 # ==========================================
-# 7. EKSEKUSI UTAMA
+# 6. EKSEKUSI UTAMA
 # ==========================================
 if __name__ == "__main__":
     print("🚀 Bot VTON Toko Baju siap dan aktif 24/7...")
