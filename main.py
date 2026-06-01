@@ -21,8 +21,8 @@ def home():
     return "Bot is running and healthy!"
 
 def run_web():
-    # Koyeb biasanya menggunakan port 8000 atau 8080
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8000)))
+    # Hugging Face Spaces menggunakan port 7860 secara default
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 7860)))
 
 # Jalankan web server di thread terpisah agar tidak memblokir bot
 Thread(target=run_web, daemon=True).start()
